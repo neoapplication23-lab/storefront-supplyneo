@@ -3,10 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 /**
  * useStripePayment
  * Creates a Stripe PaymentIntent on the server and returns the clientSecret.
- * Expects the server to expose an endpoint: POST /admin/api.php?action=create_payment_intent
- * which returns { clientSecret: "pi_xxx_secret_xxx" }
  */
-export default function useStripePayment({ amount, currency = 'usd', enabled = false }) {
+export default function useStripePayment({ amount, currency = 'eur', enabled = false }) {
   const [clientSecret, setClientSecret] = useState(null)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
@@ -14,14 +12,14 @@ export default function useStripePayment({ amount, currency = 'usd', enabled = f
 
   useEffect(() => {
     if (!enabled || !amount || amount <= 0) return
-    // Don't re-fetch if amount hasn't changed
     if (prevAmount.current === amount && clientSecret) return
 
     let cancelled = false
     setLoading(true)
     setError(null)
 
-    const base = import.meta.env.VITE_API_URL || '/admin/api.php'
+    // Always use the central cPanel API
+    const base = 'https://supplyneo.com/admin/api.php'
 
     fetch(`${base}?action=create_payment_intent`, {
       method: 'POST',
