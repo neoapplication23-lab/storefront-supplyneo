@@ -135,7 +135,7 @@ export default function Hero({ data, departureTime }) {
               pointerEvents: 'none',
             }} />
           </span>
-          ,<br />
+          {' — '}
           <span style={{ color: 'var(--text-soft)', fontWeight: 500, fontSize: '0.82em', letterSpacing: '-.01em' }}>your water toys await.</span>
         </motion.h1>
 
