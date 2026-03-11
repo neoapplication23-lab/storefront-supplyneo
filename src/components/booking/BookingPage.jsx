@@ -32,6 +32,7 @@ export default function BookingPage({ code }) {
   const [showShip, setShowShip]         = useState(false)
   const [shipShown, setShipShown]       = useState(false)
   const [showStore, setShowStore]       = useState(false)
+  const [activeFilter, setActiveFilter]  = useState(null)
 
   const products    = data?.products || []
   const cartUpsells = useUpsell(items, products, 1)
@@ -203,8 +204,8 @@ export default function BookingPage({ code }) {
           </motion.div>
         )}
 
-        {categories.length > 1 && (
-          <CategoryNav categories={categories} sectionIds={sectionIds} primaryColor={pc} />
+        {categories.length > 0 && (
+          <CategoryNav categories={categories} sectionIds={sectionIds} primaryColor={pc} onFilterChange={setActiveFilter} activeFilter={activeFilter} />
         )}
 
         <div style={{
@@ -221,12 +222,12 @@ export default function BookingPage({ code }) {
             cartHasItems={cartHasItems}
           />
 
-          {categories.map((cat, i) => (
+          {(activeFilter ? categories.filter(c => c === activeFilter) : categories).map((cat, i) => (
             <ProductSection
               key={cat}
               category={cat}
               products={products.filter(p => p.category === cat)}
-              sectionId={sectionIds[i]}
+              sectionId={sectionIds[categories.indexOf(cat)]}
               primaryColor={pc}
               allProducts={products}
             />
