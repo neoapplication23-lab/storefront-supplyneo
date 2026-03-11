@@ -162,7 +162,7 @@ export default function BookingPage({ code }) {
 
   return (
     <>
-      <Topbar appearance={data.appearance} cartCount={cartCount} cartTotal={cartTotal} />
+      <Topbar appearance={data.appearance} cartCount={cartCount} cartTotal={cartTotal} onOpenCart={() => !bookingLocked && setCheckoutOpen(true)} />
 
       <main>
         <Hero data={data} departureTime={departureTime} />
@@ -205,7 +205,7 @@ export default function BookingPage({ code }) {
         )}
 
         {categories.length > 0 && (
-          <CategoryNav categories={categories} sectionIds={sectionIds} primaryColor={pc} onFilterChange={setActiveFilter} activeFilter={activeFilter} />
+          <CategoryNav categories={categories} sectionIds={sectionIds} primaryColor={pc} onFilterChange={setActiveFilter} activeFilter={activeFilter} products={products} />
         )}
 
         <div style={{
