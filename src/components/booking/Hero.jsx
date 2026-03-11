@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import Chip from '../ui/Chip'
+import CountdownTimer from './CountdownTimer'
 
 const ease = [.22, 1, .36, 1]
 
@@ -13,7 +14,7 @@ const line = {
   show:   { opacity: 1, y: 0, transition: { duration: .6, ease } },
 }
 
-export default function Hero({ data }) {
+export default function Hero({ data, departureTime }) {
   const pc   = data.appearance?.primaryColor || '#0ea5e9'
   const boat = data.boat?.boat_name || ''
 
@@ -166,6 +167,13 @@ export default function Hero({ data }) {
             {chips.map((c, i) => (
               <Chip key={i} icon={c.icon} label={c.label} />
             ))}
+          </motion.div>
+        )}
+
+        {/* Countdown timer — always visible when departureTime set */}
+        {departureTime && (
+          <motion.div variants={line}>
+            <CountdownTimer departureTime={departureTime} primaryColor={pc} />
           </motion.div>
         )}
       </motion.div>
