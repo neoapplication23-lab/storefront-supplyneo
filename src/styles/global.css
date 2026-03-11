@@ -82,7 +82,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Card hover overlay ──────────────────────────────── */
 article:hover .card-hover-overlay { opacity: 1 !important; }
-article:hover .card-img { transform: scale(1.04); }
+article:hover .card-img { transform: scale(1.0); }
 
 /* ── Bundle card shimmer ─────────────────────────────── */
 .bundle-shimmer {
