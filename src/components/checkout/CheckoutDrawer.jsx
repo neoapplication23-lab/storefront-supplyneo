@@ -57,6 +57,8 @@ export default function CheckoutDrawer({
   const emptyForm = {
     name:      clientName || '',
     address:   '',
+    city:      '',
+    province:  '',
     zipcode:   '',
     country:   '',
     idNumber:  '',
@@ -122,6 +124,12 @@ export default function CheckoutDrawer({
       if (v.length < 5) return 'Please enter a complete address'
       return ''
     }
+    if (key === 'city') {
+      if (!v) return 'City is required'
+      if (!/^[a-zA-ZÀ-ÿ\s'\-]+$/.test(v)) return 'City name is not valid'
+      return ''
+    }
+    if (key === 'province') return ''
     if (key === 'zipcode') {
       if (!v) return 'ZIP / Postal code is required'
       // Allow letters, numbers, spaces and hyphens only — no random chars
@@ -144,7 +152,7 @@ export default function CheckoutDrawer({
     return ''
   }
 
-  const requiredFields = ['name', 'address', 'zipcode', 'country', 'idNumber', 'contact']
+  const requiredFields = ['name', 'address', 'city', 'zipcode', 'country', 'idNumber', 'contact']
 
   function handleBlur(key, value) {
     setTouched(t => ({ ...t, [key]: true }))
@@ -635,6 +643,31 @@ function StepConfirm({ form, setField, errors, touched, handleBlur, pc }) {
             isValid={!!(touched.address && !errors.address && form.address.trim())}
           />
         </FieldGroup>
+
+        {/* City + Province row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+          <FieldGroup label="City" error={errors.city} required>
+            <Input
+              value={form.city}
+              onChange={v => setField('city', v)}
+              onBlur={v => handleBlur('city', v)}
+              placeholder="e.g. Palma de Mallorca"
+              hasError={!!errors.city}
+              isValid={!!(touched.city && !errors.city && form.city.trim())}
+            />
+          </FieldGroup>
+
+          <FieldGroup label="Province / State (optional)">
+            <Input
+              value={form.province}
+              onChange={v => setField('province', v)}
+              onBlur={v => handleBlur('province', v)}
+              placeholder="e.g. Balearic Islands"
+              hasError={false}
+              isValid={!!(form.province?.trim())}
+            />
+          </FieldGroup>
+        </div>
 
         {/* ZIP + Country row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 12 }}>
