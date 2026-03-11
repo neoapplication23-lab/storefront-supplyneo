@@ -1,21 +1,27 @@
-import React, { useRef } from 'react'
-import useScrollSpy from '../../hooks/useScrollSpy'
+import React, { useRef, useState } from 'react'
 
-export default function CategoryNav({ categories, sectionIds, primaryColor }) {
+export default function CategoryNav({ categories, sectionIds, primaryColor, onFilterChange, activeFilter }) {
   const pc     = primaryColor || '#0ea5e9'
-  const active = useScrollSpy(sectionIds, 120)
   const navRef = useRef(null)
 
-  function scrollTo(id, idx) {
-    const el = document.getElementById(id)
-    if (!el) return
-    const offset = 64 + 48
-    window.scrollTo({
-      top: el.getBoundingClientRect().top + window.scrollY - offset,
-      behavior: 'smooth',
-    })
+  const allItems = ['All', ...categories]
 
-    // Keep active tab visible in the nav
+  function handleClick(cat, idx) {
+    if (cat === 'All') {
+      onFilterChange(null)
+    } else {
+      onFilterChange(cat)
+      // scroll to section
+      const sectionIdx = categories.indexOf(cat)
+      const el = document.getElementById(sectionIds[sectionIdx])
+      if (el) {
+        window.scrollTo({
+          top: el.getBoundingClientRect().top + window.scrollY - (64 + 48),
+          behavior: 'smooth',
+        })
+      }
+    }
+    // keep pill visible
     const btn = navRef.current?.children[idx]
     btn?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }
@@ -34,47 +40,36 @@ export default function CategoryNav({ categories, sectionIds, primaryColor }) {
         style={{
           display: 'flex',
           overflowX: 'auto',
-          padding: '0 clamp(16px, 4vw, 32px)',
-          gap: 2,
+          padding: '10px clamp(16px, 4vw, 32px)',
+          gap: 8,
         }}
       >
-        {categories.map((cat, i) => {
-          const isActive = active === sectionIds[i]
+        {allItems.map((cat, i) => {
+          const isActive = cat === 'All' ? activeFilter === null : activeFilter === cat
           return (
             <button
               key={cat}
-              onClick={() => scrollTo(sectionIds[i], i)}
+              onClick={() => handleClick(cat, i)}
               style={{
                 flexShrink: 0,
-                position: 'relative',
-                padding: '0 16px',
-                height: 48,
-                border: 'none',
-                background: 'transparent',
+                padding: '7px 16px',
+                borderRadius: 99,
+                border: `1px solid ${isActive ? pc : 'rgba(255,255,255,.12)'}`,
+                background: isActive ? pc + '18' : 'transparent',
                 fontFamily: 'var(--font-display)',
                 fontSize: 13,
                 fontWeight: isActive ? 700 : 500,
                 letterSpacing: '.01em',
-                color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                color: isActive ? pc : 'var(--text-muted)',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                transition: 'color 200ms ease',
+                transition: 'all 200ms ease',
                 outline: 'none',
               }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-soft)' }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted)' }}
+              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderColor = pc + '50'; e.currentTarget.style.color = 'var(--text-soft)' }}}
+              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)'; e.currentTarget.style.color = 'var(--text-muted)' }}}
             >
-              {cat}
-              {/* Active underline */}
-              <span style={{
-                position: 'absolute', bottom: 0, left: '50%',
-                transform: 'translateX(-50%)',
-                height: 2, borderRadius: '2px 2px 0 0',
-                width: isActive ? '80%' : '0%',
-                background: pc,
-                transition: 'width 250ms cubic-bezier(.22,1,.36,1)',
-                display: 'block',
-              }} />
+              {cat === 'All' ? '🌊 All' : cat}
             </button>
           )
         })}
