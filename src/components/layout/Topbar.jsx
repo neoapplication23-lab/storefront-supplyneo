@@ -1,7 +1,7 @@
 import React from 'react'
 import { isValidImageSrc } from '../../utils/image'
 
-export default function Topbar({ appearance, cartCount, cartTotal }) {
+export default function Topbar({ appearance, cartCount, cartTotal, onOpenCart }) {
   const pc      = appearance?.primaryColor || '#0ea5e9'
   const bizName = appearance?.businessName || ''
   const logo    = isValidImageSrc(appearance?.logo) ? appearance.logo : ''
@@ -39,16 +39,22 @@ export default function Topbar({ appearance, cartCount, cartTotal }) {
       </div>
 
       {/* Cart indicator pill */}
-      <div style={{
-        height: 36,
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '0 14px',
-        borderRadius: 'var(--r-pill)',
-        background: cartCount > 0 ? pc + '14' : 'transparent',
-        border: `1px solid ${cartCount > 0 ? pc + '28' : 'var(--border-subtle)'}`,
-        transition: 'background 300ms ease, border-color 300ms ease',
-        cursor: 'default',
-      }}>
+      <button
+        onClick={cartCount > 0 && onOpenCart ? onOpenCart : undefined}
+        style={{
+          height: 36,
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '0 14px',
+          borderRadius: 'var(--r-pill)',
+          background: cartCount > 0 ? pc + '14' : 'transparent',
+          border: `1px solid ${cartCount > 0 ? pc + '28' : 'var(--border-subtle)'}`,
+          transition: 'background 300ms ease, border-color 300ms ease, box-shadow 200ms ease',
+          cursor: cartCount > 0 ? 'pointer' : 'default',
+          outline: 'none',
+        }}
+        onMouseEnter={e => { if (cartCount > 0) e.currentTarget.style.boxShadow = `0 0 0 1px ${pc}40` }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}
+      >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={cartCount > 0 ? pc : 'var(--text-muted)'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'stroke 300ms ease', flexShrink: 0 }}>
           <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
           <line x1="3" y1="6" x2="21" y2="6"/>
@@ -68,7 +74,7 @@ export default function Topbar({ appearance, cartCount, cartTotal }) {
             Empty
           </span>
         )}
-      </div>
+      </button>
     </header>
   )
 }
