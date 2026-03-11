@@ -87,7 +87,7 @@ export default function ExperienceMeter({ total = 0, primaryColor, thresholds })
               ? currentLevel?.label
               : currentLevel
                 ? currentLevel.label
-                : 'Start your selection'}
+                : 'Your selection'}
           </motion.span>
         </AnimatePresence>
 
