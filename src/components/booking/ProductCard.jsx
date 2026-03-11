@@ -66,7 +66,7 @@ export default function ProductCard({ product, qty, primaryColor, onAdd, onRemov
             className="card-img"
             style={{
               width: '100%', height: '100%', objectFit: 'cover',
-              transition: 'transform 500ms cubic-bezier(.22,1,.36,1)',
+
             }}
           />
         ) : (
