@@ -1,9 +1,10 @@
 import React from 'react'
+import { isValidImageSrc } from '../../utils/image'
 
 export default function Topbar({ appearance, cartCount, cartTotal }) {
   const pc      = appearance?.primaryColor || '#0ea5e9'
   const bizName = appearance?.businessName || ''
-  const logo    = appearance?.logo || ''
+  const logo    = isValidImageSrc(appearance?.logo) ? appearance.logo : ''
 
   return (
     <header style={{
