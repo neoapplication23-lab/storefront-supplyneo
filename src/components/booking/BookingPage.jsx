@@ -131,15 +131,17 @@ export default function BookingPage({ code }) {
       orderId,
       items,
       total:    ct,
-      clientName: form.name,
-      email:    form.contact,
-      address:  form.address,
-      city:     form.city,
-      province: form.province,
-      zipcode:  form.zipcode,
-      country:  form.country,
-      idNumber: form.idNumber,
-      notes:    form.notes,
+      clientDetails: {
+        fullName:  form.name,
+        email:     form.contact,
+        address:   form.address,
+        city:      form.city,
+        province:  form.province,
+        zipcode:   form.zipcode,
+        country:   form.country,
+        idNumber:  form.idNumber,
+        notes:     form.notes,
+      },
     })
     setFinalTotal(ct)
     setOrders(prev => [...prev, { orderId, total: ct, form }])
