@@ -1,18 +1,15 @@
 import React, { useRef, useState } from 'react'
 
-export default function CategoryNav({ categories, sectionIds, primaryColor, onFilterChange, activeFilter, products = [] }) {
+export default function CategoryNav({ collections = [], sectionIds, primaryColor, onFilterChange, activeFilter, products = [] }) {
   const pc     = primaryColor || '#0ea5e9'
   const navRef = useRef(null)
 
-  const allItems = ['All', ...categories]
-
-  function handleClick(cat, idx) {
-    if (cat === 'All') {
+  function handleClick(col, idx) {
+    if (col === null) {
       onFilterChange(null)
     } else {
-      onFilterChange(cat)
-      // scroll to section
-      const sectionIdx = categories.indexOf(cat)
+      onFilterChange(col.name)
+      const sectionIdx = collections.indexOf(col)
       const el = document.getElementById(sectionIds[sectionIdx])
       if (el) {
         window.scrollTo({
@@ -21,7 +18,6 @@ export default function CategoryNav({ categories, sectionIds, primaryColor, onFi
         })
       }
     }
-    // keep pill visible
     const btn = navRef.current?.children[idx]
     btn?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }
@@ -44,12 +40,16 @@ export default function CategoryNav({ categories, sectionIds, primaryColor, onFi
           gap: 8,
         }}
       >
-        {allItems.map((cat, i) => {
-          const isActive = cat === 'All' ? activeFilter === null : activeFilter === cat
+        {/* All pill */}
+        {[null, ...collections].map((col, i) => {
+          const isAll = col === null
+          const isActive = isAll ? activeFilter === null : activeFilter === col.name
+          const count = isAll ? products.length : (col.productIds?.filter(pid => products.find(p => p.id === pid)).length || 0)
+          const label = isAll ? `🌊 All (${count})` : `${col.name} (${count})`
           return (
             <button
-              key={cat}
-              onClick={() => handleClick(cat, i)}
+              key={isAll ? 'all' : col.id}
+              onClick={() => handleClick(col, i)}
               style={{
                 flexShrink: 0,
                 padding: '7px 16px',
@@ -69,10 +69,7 @@ export default function CategoryNav({ categories, sectionIds, primaryColor, onFi
               onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderColor = pc + '50'; e.currentTarget.style.color = 'var(--text-soft)' }}}
               onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)'; e.currentTarget.style.color = 'var(--text-muted)' }}}
             >
-              {cat === 'All'
-                ? `🌊 All${products.length ? ` (${products.length})` : ''}`
-                : `${cat}${products.filter(p => p.category === cat).length ? ` (${products.filter(p => p.category === cat).length})` : ''}`
-              }
+              {label}
             </button>
           )
         })}
