@@ -37,9 +37,32 @@ export default function BookingPage({ code }) {
   const cartUpsells = useUpsell(items, products, 1)
 
   const departureTime  = data?.departureTime || null
-  const timeToCheckin  = departureTime ? (new Date(departureTime) - Date.now()) : Infinity
+
+  // Build a real Date from departureTime OR date+checkIn
+  const resolvedDeparture = (() => {
+    if (!data) return null
+    if (data.departureTime) {
+      const d = new Date(data.departureTime)
+      if (!isNaN(d)) return d
+    }
+    if (data.date && data.checkIn) {
+      const timeMatch = data.checkIn.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+      if (timeMatch) {
+        let h = parseInt(timeMatch[1], 10)
+        const m = parseInt(timeMatch[2], 10)
+        const ampm = timeMatch[3]?.toUpperCase()
+        if (ampm === 'PM' && h < 12) h += 12
+        if (ampm === 'AM' && h === 12) h = 0
+        const d = new Date(data.date)
+        if (!isNaN(d)) { d.setHours(h, m, 0, 0); return d }
+      }
+    }
+    return null
+  })()
+
+  const timeToCheckin  = resolvedDeparture ? (resolvedDeparture - Date.now()) : Infinity
   const underOneHour   = timeToCheckin > 0 && timeToCheckin < 3600000
-  const checkinPassed  = timeToCheckin <= 0
+  const checkinPassed  = resolvedDeparture ? timeToCheckin <= 0 : false
 
   useEffect(() => {
     if (underOneHour && !shipShown && !loading && data) {
@@ -193,7 +216,7 @@ export default function BookingPage({ code }) {
           )}
 
           <PrepWindowBanner
-            departureTime={departureTime}
+            departureTime={resolvedDeparture ? resolvedDeparture.toISOString() : departureTime}
             primaryColor={pc}
             cartHasItems={cartHasItems}
           />
