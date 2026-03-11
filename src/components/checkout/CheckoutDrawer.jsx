@@ -188,14 +188,10 @@ export default function CheckoutDrawer({
   }
 
   async function handleSubmit() {
-    // Guard: must have paid
-    if (!paymentDone && STRIPE_PK) {
-      setSubmitError('Please complete payment before confirming your order.')
-      return
-    }
     setSubmitError('')
     setLoading(true)
     try {
+      // If Stripe is configured and payment not yet done, process it now
       if (STRIPE_PK && stripeSubmitRef.current && !paymentDone) {
         await stripeSubmitRef.current(window.location.href)
         setPaymentDone(true)
@@ -416,43 +412,7 @@ export default function CheckoutDrawer({
               background: 'var(--bg-surface)',
               flexDirection: 'column',
             }}>
-              {/* Payment required warning */}
-              {step === 2 && !paymentDone && (
-                <motion.div
-                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '9px 12px',
-                    background: 'rgba(245,158,11,0.08)',
-                    border: '1px solid rgba(245,158,11,0.25)',
-                    borderRadius: 'var(--r-md)',
-                    fontSize: 12, color: '#f59e0b',
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
-                  Complete payment above to confirm your order
-                </motion.div>
-              )}
-              {step === 2 && paymentDone && (
-                <motion.div
-                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '9px 12px',
-                    background: 'rgba(16,185,129,0.08)',
-                    border: '1px solid rgba(16,185,129,0.25)',
-                    borderRadius: 'var(--r-md)',
-                    fontSize: 12, color: '#10b981',
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <path d="M20 6L9 17l-5-5"/>
-                  </svg>
-                  Payment confirmed — tap below to finalise your order
-                </motion.div>
-              )}
+              {/* Submit error */}
 
               <div style={{ display: 'flex', gap: 10 }}>
                 {step === 0 && (
@@ -470,7 +430,7 @@ export default function CheckoutDrawer({
                 {step === 2 && (
                   <>
                     {renderGhostBtn(() => goTo(1), '← Back')}
-                    {renderPrimaryBtn(handleSubmit, !paymentDone && !!STRIPE_PK, loading ? 'Processing…' : 'Place Order')}
+                    {renderPrimaryBtn(handleSubmit, loading, loading ? 'Processing…' : 'Place Order 🔒')}
                   </>
                 )}
               </div>
