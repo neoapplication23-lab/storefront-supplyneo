@@ -44,7 +44,7 @@ export default function CartBar({
     }
   }, [count, upsellSuggestion])
 
-  const label = locked ? '⚓ Orders Closed' : urgencyActive ? 'Finalise — vessel prepares soon' : 'Review Selection'
+  const label = locked ? '⚓ Orders Closed' : urgencyActive ? 'Finalise — vessel prepares soon' : 'View Cart'
 
   return (
     <AnimatePresence>
