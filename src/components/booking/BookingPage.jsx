@@ -134,6 +134,8 @@ export default function BookingPage({ code }) {
       clientName: form.name,
       email:    form.contact,
       address:  form.address,
+      city:     form.city,
+      province: form.province,
       zipcode:  form.zipcode,
       country:  form.country,
       idNumber: form.idNumber,
