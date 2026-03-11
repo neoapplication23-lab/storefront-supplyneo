@@ -32,7 +32,7 @@ const PARTICLES = [
   { x: -60, y: -10, size: 3, delay: .5 },
 ]
 
-export default function SuccessScreen({ clientName, total, primaryColor }) {
+export default function SuccessScreen({ clientName, total, primaryColor, boatName, departureDate, orderCount = 1, onAddMore }) {
   const pc = primaryColor || '#0ea5e9'
   const [showParticles, setShowParticles] = useState(true)
 
@@ -277,6 +277,43 @@ export default function SuccessScreen({ clientName, total, primaryColor }) {
         >
           You can safely close this window.
         </motion.p>
+
+        {/* Re-order option */}
+        {onAddMore && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.85 }}
+            style={{ marginTop: 8 }}
+          >
+            <div style={{
+              height: 1, background: 'var(--border-subtle)', margin: '16px 0',
+            }} />
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+              {orderCount > 1
+                ? `You've placed ${orderCount} orders so far.`
+                : 'Want to add something else?'}
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={onAddMore}
+              style={{
+                width: '100%', height: 44,
+                background: 'transparent',
+                border: `1px solid ${pc}40`,
+                borderRadius: 'var(--r-xl)',
+                color: pc,
+                fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14,
+                cursor: 'pointer',
+                transition: 'background 150ms, border-color 150ms',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${pc}10`; e.currentTarget.style.borderColor = `${pc}70` }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = `${pc}40` }}
+            >
+              + Add another order
+            </motion.button>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   )
