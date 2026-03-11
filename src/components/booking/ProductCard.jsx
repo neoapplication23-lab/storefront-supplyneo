@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Badge from '../ui/Badge'
 import Stepper from '../ui/Stepper'
 import { formatPrice } from '../../utils/money'
+import { isValidImageSrc } from '../../utils/image'
 
 export default function ProductCard({ product, qty, primaryColor, onAdd, onRemove, onOpenModal }) {
   const pc      = primaryColor || '#0ea5e9'
   const inCart  = qty > 0
   const [imgError, setImgError] = useState(false)
   const [popKey, setPopKey]     = useState(0)  // triggers add-pop animation
-  const hasImage = product.image_url && !imgError
+  const hasImage = isValidImageSrc(product.image_url) && !imgError
 
   function handleAdd(e) {
     e.stopPropagation()
