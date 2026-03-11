@@ -25,24 +25,22 @@ export default function BookingPage({ code }) {
   const clear  = useCartStore(s => s.clear)
   const total  = useCartStore(s => s.total)
 
+  // ── ALL hooks must be declared before any early returns ──
   const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [orders, setOrders]             = useState([])       // list of completed orders
+  const [orders, setOrders]             = useState([])
   const [finalTotal, setFinalTotal]     = useState(0)
   const [showShip, setShowShip]         = useState(false)
-  const [shipShown, setShipShown]       = useState(false)   // show once per session
+  const [shipShown, setShipShown]       = useState(false)
+  const [showStore, setShowStore]       = useState(false)
 
-  // ⚠️ useUpsell must be called here (top level), before any conditional return
   const products    = data?.products || []
   const cartUpsells = useUpsell(items, products, 1)
 
-  const departureTime = data?.departureTime || null
+  const departureTime  = data?.departureTime || null
+  const timeToCheckin  = departureTime ? (new Date(departureTime) - Date.now()) : Infinity
+  const underOneHour   = timeToCheckin > 0 && timeToCheckin < 3600000
+  const checkinPassed  = timeToCheckin <= 0
 
-  // Check if we're under 1 hour from check-in
-  const timeToCheckin = departureTime ? (new Date(departureTime) - Date.now()) : Infinity
-  const underOneHour  = timeToCheckin > 0 && timeToCheckin < 3600000  // ms
-  const checkinPassed = timeToCheckin <= 0
-
-  // Show ship animation once when entering the < 1h window
   useEffect(() => {
     if (underOneHour && !shipShown && !loading && data) {
       setShowShip(true)
@@ -83,9 +81,9 @@ export default function BookingPage({ code }) {
   const cartCount   = Object.values(items).reduce((a, b) => a + b, 0)
   const cartTotal   = total(products)
   const cartHasItems = cartCount > 0
-
-  // Top upsell suggestion for CartBar micro-prompt
   const topUpsell   = cartUpsells[0] || null
+  const hasDoneOrder = orders.length > 0
+  const bookingLocked = underOneHour || checkinPassed
 
   const urgencyActive = (() => {
     if (!departureTime || !cartHasItems) return false
@@ -94,29 +92,20 @@ export default function BookingPage({ code }) {
     return hours > 0 && hours < 24
   })()
 
-  // Last completed order (for re-order flow)
-  const lastOrder = orders[orders.length - 1] || null
-  const hasDoneOrder = orders.length > 0
-  const [showStore, setShowStore] = useState(false)   // override to show store after order
-
-  // Locked out if < 1h to check-in
-  const bookingLocked = underOneHour || checkinPassed
-
   async function handleSubmit({ form, cartLines, cartTotal: ct }) {
     const orderId = `${data.id}-${Date.now()}`
     await submitOrder({
-      linkId: data.id,
+      linkId:   data.id,
       orderId,
       items,
-      total: ct,
-      clientName:  form.name,
-      email:       form.contact,   // could be email or phone
-      phone:       form.phone,
-      address:     form.address,
-      zipcode:     form.zipcode,
-      country:     form.country,
-      idNumber:    form.idNumber,
-      notes:       form.notes,
+      total:    ct,
+      clientName: form.name,
+      email:    form.contact,
+      address:  form.address,
+      zipcode:  form.zipcode,
+      country:  form.country,
+      idNumber: form.idNumber,
+      notes:    form.notes,
     })
     setFinalTotal(ct)
     setOrders(prev => [...prev, { orderId, total: ct, form }])
@@ -125,7 +114,7 @@ export default function BookingPage({ code }) {
     setCheckoutOpen(false)
   }
 
-  // ── Success screen — shown after first order; can reorder
+  // Success screen — after order, cart empty, not explicitly returning to store
   if (hasDoneOrder && cartCount === 0 && !checkoutOpen && !showStore) {
     return (
       <>
@@ -154,7 +143,6 @@ export default function BookingPage({ code }) {
       <main>
         <Hero data={data} departureTime={departureTime} />
 
-        {/* Locked banner when < 1h to check-in */}
         {bookingLocked && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
@@ -218,7 +206,6 @@ export default function BookingPage({ code }) {
               sectionId={sectionIds[i]}
               primaryColor={pc}
               allProducts={products}
-              locked={bookingLocked}
             />
           ))}
         </div>
