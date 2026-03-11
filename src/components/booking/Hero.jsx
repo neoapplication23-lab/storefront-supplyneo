@@ -170,10 +170,15 @@ export default function Hero({ data, departureTime }) {
           </motion.div>
         )}
 
-        {/* Countdown timer — always visible when departureTime set */}
-        {departureTime && (
+        {/* Countdown timer — always visible when we have timing info */}
+        {(departureTime || (data.date && data.checkIn)) && (
           <motion.div variants={line}>
-            <CountdownTimer departureTime={departureTime} primaryColor={pc} />
+            <CountdownTimer
+              departureTime={departureTime}
+              date={data.date}
+              checkIn={data.checkIn}
+              primaryColor={pc}
+            />
           </motion.div>
         )}
       </motion.div>
