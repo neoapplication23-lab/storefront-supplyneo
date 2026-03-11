@@ -100,8 +100,16 @@ export default function BookingPage({ code }) {
   const pc          = data.appearance?.primaryColor || '#0ea5e9'
   const bundles     = data.bundles    || []
   const thresholds  = data.thresholds || null
-  const categories  = [...new Set(products.map(p => p.category))]
-  const sectionIds  = categories.map((_, i) => `bksec_${i}`)
+  // Use real collections from API; fall back to product categories if none defined
+  const rawCollections = data?.collections || []
+  const collections = rawCollections.length > 0
+    ? rawCollections.filter(col => col.productIds?.some(pid => products.find(p => p.id === pid)))
+    : [...new Set(products.map(p => p.category))].map((cat, i) => ({
+        id: `cat_${i}`, name: cat,
+        productIds: products.filter(p => p.category === cat).map(p => p.id)
+      }))
+  const categories = collections.map(c => c.name)
+  const sectionIds = collections.map((_, i) => `bksec_${i}`)
   const cartCount   = Object.values(items).reduce((a, b) => a + b, 0)
   const cartTotal   = total(products)
   const cartHasItems = cartCount > 0
@@ -205,7 +213,7 @@ export default function BookingPage({ code }) {
         )}
 
         {categories.length > 0 && (
-          <CategoryNav categories={categories} sectionIds={sectionIds} primaryColor={pc} onFilterChange={setActiveFilter} activeFilter={activeFilter} products={products} />
+          <CategoryNav collections={collections} sectionIds={sectionIds} primaryColor={pc} onFilterChange={setActiveFilter} activeFilter={activeFilter} products={products} />
         )}
 
         <div style={{
@@ -222,12 +230,12 @@ export default function BookingPage({ code }) {
             cartHasItems={cartHasItems}
           />
 
-          {(activeFilter ? categories.filter(c => c === activeFilter) : categories).map((cat, i) => (
+          {(activeFilter ? collections.filter(c => c.name === activeFilter) : collections).map((col, i) => (
             <ProductSection
-              key={cat}
-              category={cat}
-              products={products.filter(p => p.category === cat)}
-              sectionId={sectionIds[categories.indexOf(cat)]}
+              key={col.id}
+              category={col.name}
+              products={products.filter(p => col.productIds?.includes(p.id))}
+              sectionId={sectionIds[collections.indexOf(col)]}
               primaryColor={pc}
               allProducts={products}
             />
