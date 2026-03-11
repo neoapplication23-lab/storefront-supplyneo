@@ -4,6 +4,7 @@ import Badge from '../ui/Badge'
 import Stepper from '../ui/Stepper'
 import UpsellRow from './UpsellRow'
 import { formatPrice } from '../../utils/money'
+import { isValidImageSrc } from '../../utils/image'
 
 const ease = [.22, 1, .36, 1]
 
@@ -20,7 +21,7 @@ export default function ProductModal({
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 640 : false
   )
-  const hasImage = product?.image_url && !imgError
+  const hasImage = isValidImageSrc(product?.image_url) && !imgError
 
   useEffect(() => {
     const fn = e => { if (e.key === 'Escape') onClose() }
