@@ -103,7 +103,7 @@ export default function Hero({ data, departureTime }) {
             letterSpacing: '.18em', textTransform: 'uppercase',
             color: pc, opacity: .9,
           }}>
-            Private Charter Selection
+            Your Water Toys Selection
           </span>
         </motion.div>
 
@@ -126,7 +126,7 @@ export default function Hero({ data, departureTime }) {
             position: 'relative',
             display: 'inline-block',
           }}>
-            {data.clientName}
+            {(data.clientName || '').split(' ')[0]}
             {/* name underline glow */}
             <span style={{
               position: 'absolute', bottom: -3, left: 0, right: 0,
@@ -136,13 +136,7 @@ export default function Hero({ data, departureTime }) {
             }} />
           </span>
           ,<br />
-          your experience<br />
-          <span style={{
-            color: 'var(--text-soft)', fontWeight: 500,
-            fontSize: '0.78em', letterSpacing: '-.01em',
-          }}>
-            awaits aboard.
-          </span>
+          <span style={{ color: 'var(--text-soft)', fontWeight: 500, fontSize: '0.82em', letterSpacing: '-.01em' }}>your water toys await.</span>
         </motion.h1>
 
         {/* Body */}
