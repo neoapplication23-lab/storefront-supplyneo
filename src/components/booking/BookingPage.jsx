@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import useBooking from '../../hooks/useBooking'
 import useCartStore from '../../store/useCartStore'
 import useUpsell from '../../hooks/useUpsell'
@@ -14,6 +14,8 @@ import SuccessScreen from './SuccessScreen'
 import NotFound from './NotFound'
 import Spinner from '../ui/Spinner'
 import CheckoutDrawer from '../checkout/CheckoutDrawer'
+import ShipAnimation from './ShipAnimation'
+import { motion } from 'framer-motion'
 
 export default function BookingPage({ code }) {
   const { data, loading, error } = useBooking(code)
@@ -24,12 +26,29 @@ export default function BookingPage({ code }) {
   const total  = useCartStore(s => s.total)
 
   const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [done, setDone]                 = useState(false)
+  const [orders, setOrders]             = useState([])       // list of completed orders
   const [finalTotal, setFinalTotal]     = useState(0)
+  const [showShip, setShowShip]         = useState(false)
+  const [shipShown, setShipShown]       = useState(false)   // show once per session
 
   // ⚠️ useUpsell must be called here (top level), before any conditional return
   const products    = data?.products || []
   const cartUpsells = useUpsell(items, products, 1)
+
+  const departureTime = data?.departureTime || null
+
+  // Check if we're under 1 hour from check-in
+  const timeToCheckin = departureTime ? (new Date(departureTime) - Date.now()) : Infinity
+  const underOneHour  = timeToCheckin > 0 && timeToCheckin < 3600000  // ms
+  const checkinPassed = timeToCheckin <= 0
+
+  // Show ship animation once when entering the < 1h window
+  useEffect(() => {
+    if (underOneHour && !shipShown && !loading && data) {
+      setShowShip(true)
+      setShipShown(true)
+    }
+  }, [underOneHour, shipShown, loading, data])
 
   /* ── Loading ── */
   if (loading) {
@@ -64,13 +83,10 @@ export default function BookingPage({ code }) {
   const cartCount   = Object.values(items).reduce((a, b) => a + b, 0)
   const cartTotal   = total(products)
   const cartHasItems = cartCount > 0
-  const departureTime = data.departureTime || null
 
   // Top upsell suggestion for CartBar micro-prompt
   const topUpsell   = cartUpsells[0] || null
 
-  // Urgency: PrepWindowBanner visibility drives CartBar label
-  // We compute it here so CartBar receives it without prop drilling through ProductSection
   const urgencyActive = (() => {
     if (!departureTime || !cartHasItems) return false
     const diff = new Date(departureTime) - Date.now()
@@ -78,27 +94,57 @@ export default function BookingPage({ code }) {
     return hours > 0 && hours < 24
   })()
 
-  if (done) {
-    return (
-      <SuccessScreen
-        clientName={data.clientName}
-        total={finalTotal}
-        primaryColor={pc}
-        boatName={data.boat?.boat_name || ''}
-        departureDate={data.date || ''}
-      />
-    )
-  }
+  // Last completed order (for re-order flow)
+  const lastOrder = orders[orders.length - 1] || null
+  const hasDoneOrder = orders.length > 0
+  const [showStore, setShowStore] = useState(false)   // override to show store after order
 
-  async function handleSubmit({ form, cartTotal: ct }) {
+  // Locked out if < 1h to check-in
+  const bookingLocked = underOneHour || checkinPassed
+
+  async function handleSubmit({ form, cartLines, cartTotal: ct }) {
+    const orderId = `${data.id}-${Date.now()}`
     await submitOrder({
-      linkId: data.id, items, total: ct,
-      clientName: form.name, email: form.email, notes: form.notes,
+      linkId: data.id,
+      orderId,
+      items,
+      total: ct,
+      clientName:  form.name,
+      email:       form.contact,   // could be email or phone
+      phone:       form.phone,
+      address:     form.address,
+      zipcode:     form.zipcode,
+      country:     form.country,
+      idNumber:    form.idNumber,
+      notes:       form.notes,
     })
     setFinalTotal(ct)
+    setOrders(prev => [...prev, { orderId, total: ct, form }])
+    setShowStore(false)
     clear()
     setCheckoutOpen(false)
-    setDone(true)
+  }
+
+  // ── Success screen — shown after first order; can reorder
+  if (hasDoneOrder && cartCount === 0 && !checkoutOpen && !showStore) {
+    return (
+      <>
+        <SuccessScreen
+          clientName={data.clientName}
+          total={finalTotal}
+          primaryColor={pc}
+          boatName={data.boat?.boat_name || ''}
+          departureDate={data.date || ''}
+          orderCount={orders.length}
+          onAddMore={bookingLocked ? undefined : () => setShowStore(true)}
+        />
+        <ShipAnimation
+          show={showShip}
+          primaryColor={pc}
+          onDismiss={() => setShowShip(false)}
+        />
+      </>
+    )
   }
 
   return (
@@ -106,7 +152,45 @@ export default function BookingPage({ code }) {
       <Topbar appearance={data.appearance} cartCount={cartCount} cartTotal={cartTotal} />
 
       <main>
-        <Hero data={data} />
+        <Hero data={data} departureTime={departureTime} />
+
+        {/* Locked banner when < 1h to check-in */}
+        {bookingLocked && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              maxWidth: 900, margin: '24px auto 0',
+              padding: '0 clamp(16px,4vw,28px)',
+            }}
+          >
+            <div style={{
+              padding: '16px 20px',
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              borderLeft: '3px solid #ef4444',
+              borderRadius: 'var(--r-lg)',
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <span style={{ fontSize: 20 }}>⚓</span>
+              <div>
+                <p style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 700,
+                  fontSize: 14, color: 'var(--text-primary)', marginBottom: 2,
+                }}>
+                  {checkinPassed
+                    ? 'Check-in time has passed'
+                    : 'Orders are closed — less than 1 hour to check-in'}
+                </p>
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  {checkinPassed
+                    ? 'Your booking window has closed. Contact your charter team for assistance.'
+                    : 'The preparation team is already loading the vessel. New orders cannot be accepted at this stage.'}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {categories.length > 1 && (
           <CategoryNav categories={categories} sectionIds={sectionIds} primaryColor={pc} />
@@ -133,7 +217,8 @@ export default function BookingPage({ code }) {
               products={products.filter(p => p.category === cat)}
               sectionId={sectionIds[i]}
               primaryColor={pc}
-              allProducts={products}   // full catalog for cross-category upsells
+              allProducts={products}
+              locked={bookingLocked}
             />
           ))}
         </div>
@@ -146,7 +231,8 @@ export default function BookingPage({ code }) {
         thresholds={thresholds}
         urgencyActive={urgencyActive}
         upsellSuggestion={topUpsell}
-        onCheckout={() => setCheckoutOpen(true)}
+        onCheckout={() => !bookingLocked && setCheckoutOpen(true)}
+        locked={bookingLocked}
       />
 
       <CheckoutDrawer
@@ -161,6 +247,13 @@ export default function BookingPage({ code }) {
         clientName={data.clientName}
         boatName={data.boat?.boat_name || ''}
         departureDate={data.date || ''}
+        previousOrders={orders}
+      />
+
+      <ShipAnimation
+        show={showShip}
+        primaryColor={pc}
+        onDismiss={() => setShowShip(false)}
       />
     </>
   )
