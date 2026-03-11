@@ -8,7 +8,8 @@ export default function CartBar({
   count, total, primaryColor, onCheckout,
   thresholds,
   urgencyActive,
-  upsellSuggestion,   // single Product | null — fed from BookingPage
+  upsellSuggestion,
+  locked = false,
 }) {
   const pc = primaryColor || '#0ea5e9'
 
@@ -43,7 +44,7 @@ export default function CartBar({
     }
   }, [count, upsellSuggestion])
 
-  const label = urgencyActive ? 'Finalise — vessel prepares soon' : 'Review Selection'
+  const label = locked ? '⚓ Orders Closed' : urgencyActive ? 'Finalise — vessel prepares soon' : 'Review Selection'
 
   return (
     <AnimatePresence>
@@ -131,15 +132,17 @@ export default function CartBar({
 
             {/* ── CTA Button ── */}
             <motion.button
-              whileTap={{ scale: .975 }}
-              onClick={onCheckout}
+              whileTap={{ scale: locked ? 1 : .975 }}
+              onClick={locked ? undefined : onCheckout}
               style={{
                 width: '100%', height: 'clamp(56px,7vw,64px)',
-                border: 'none', borderRadius: 'var(--r-xl)', cursor: 'pointer',
-                background: `linear-gradient(135deg, ${pc} 0%, ${pc}d0 100%)`,
+                border: 'none', borderRadius: 'var(--r-xl)', cursor: locked ? 'not-allowed' : 'pointer',
+                background: locked
+                  ? 'var(--bg-raised)'
+                  : `linear-gradient(135deg, ${pc} 0%, ${pc}d0 100%)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '0 clamp(10px,2vw,16px)',
-                boxShadow: `0 8px 36px ${pc}45, 0 2px 8px rgba(0,0,0,.45)`,
+                boxShadow: locked ? 'none' : `0 8px 36px ${pc}45, 0 2px 8px rgba(0,0,0,.45)`,
                 position: 'relative', overflow: 'hidden',
                 transition: 'box-shadow 200ms ease',
               }}
