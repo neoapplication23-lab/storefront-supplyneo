@@ -111,14 +111,33 @@ export default function CheckoutDrawer({
   // ── Validation ──────────────────────────────────────────────
   function validateField(key, value) {
     const v = (value || '').trim()
-    if (key === 'name')    return v ? '' : 'Full name is required'
-    if (key === 'address') return v ? '' : 'Address is required'
-    if (key === 'zipcode') return v ? '' : 'ZIP / Postal code is required'
+    if (key === 'name') {
+      if (!v) return 'Full name is required'
+      if (v.length < 2) return 'Name is too short'
+      if (!/^[a-zA-ZÀ-ÿ\s'\-]+$/.test(v)) return 'Name can only contain letters'
+      return ''
+    }
+    if (key === 'address') {
+      if (!v) return 'Address is required'
+      if (v.length < 5) return 'Please enter a complete address'
+      return ''
+    }
+    if (key === 'zipcode') {
+      if (!v) return 'ZIP / Postal code is required'
+      // Allow letters, numbers, spaces and hyphens only — no random chars
+      if (!/^[A-Z0-9][A-Z0-9\s\-]{1,9}$/i.test(v)) return 'Enter a valid postal code (e.g. 07001 or SW1A 1AA)'
+      return ''
+    }
     if (key === 'country') return v ? '' : 'Country is required'
-    if (key === 'idNumber') return v ? '' : 'ID or Passport number is required'
+    if (key === 'idNumber') {
+      if (!v) return 'ID or Passport number is required'
+      if (v.length < 5) return 'ID number seems too short'
+      if (!/^[A-Z0-9\-]+$/i.test(v)) return 'ID number can only contain letters, numbers and hyphens'
+      return ''
+    }
     if (key === 'contact') {
       if (!v) return 'Email or phone number is required'
-      const isEmail = /\S+@\S+\.\S+/.test(v)
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
       const isPhone = /^[+\d][\d\s\-().]{6,}$/.test(v)
       return (isEmail || isPhone) ? '' : 'Enter a valid email or phone number'
     }
@@ -681,11 +700,11 @@ function StepConfirm({ form, setField, errors, touched, handleBlur, pc }) {
         </FieldGroup>
 
         {/* Notes optional */}
-        <FieldGroup label="Special requests (optional)">
+        <FieldGroup label="Special requests / preferences (optional)">
           <Textarea
             value={form.notes}
             onChange={v => setField('notes', v)}
-            placeholder="Dietary requirements, allergies, timing preferences…"
+            placeholder="Equipment preferences, skill level, specific requests for your water experience…"
             rows={3}
           />
         </FieldGroup>
