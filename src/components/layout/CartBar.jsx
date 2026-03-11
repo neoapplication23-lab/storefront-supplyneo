@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion'
-import ExperienceMeter from '../booking/ExperienceMeter'
 
 const ease = [.22, 1, .36, 1]
 
@@ -203,8 +202,6 @@ export default function CartBar({
               </motion.span>
             </motion.button>
 
-            {/* ── Experience meter ── */}
-            <ExperienceMeter total={total} primaryColor={pc} thresholds={thresholds} />
           </div>
         </motion.div>
       )}
