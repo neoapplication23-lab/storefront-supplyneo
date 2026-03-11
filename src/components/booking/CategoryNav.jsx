@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 
-export default function CategoryNav({ categories, sectionIds, primaryColor, onFilterChange, activeFilter }) {
+export default function CategoryNav({ categories, sectionIds, primaryColor, onFilterChange, activeFilter, products = [] }) {
   const pc     = primaryColor || '#0ea5e9'
   const navRef = useRef(null)
 
@@ -69,7 +69,10 @@ export default function CategoryNav({ categories, sectionIds, primaryColor, onFi
               onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderColor = pc + '50'; e.currentTarget.style.color = 'var(--text-soft)' }}}
               onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)'; e.currentTarget.style.color = 'var(--text-muted)' }}}
             >
-              {cat === 'All' ? '🌊 All' : cat}
+              {cat === 'All'
+                ? `🌊 All${products.length ? ` (${products.length})` : ''}`
+                : `${cat}${products.filter(p => p.category === cat).length ? ` (${products.filter(p => p.category === cat).length})` : ''}`
+              }
             </button>
           )
         })}
