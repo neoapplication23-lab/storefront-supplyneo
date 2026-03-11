@@ -10,9 +10,7 @@ import useUpsell from '../../hooks/useUpsell'
 import useStripePayment from '../../hooks/useStripePayment'
 import { formatPrice } from '../../utils/money'
 
-// Read the publishable key from env
 const STRIPE_PK = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
-
 const ease = [.22, 1, .36, 1]
 
 const slideVariants = {
@@ -20,6 +18,20 @@ const slideVariants = {
   center: { x: 0, opacity: 1 },
   exit:  dir => ({ x: dir > 0 ? -56 : 56, opacity: 0 }),
 }
+
+// Country list (common + full)
+const COUNTRIES = [
+  'Spain', 'France', 'Italy', 'Germany', 'United Kingdom', 'Portugal',
+  'Netherlands', 'Belgium', 'Switzerland', 'Austria', 'Sweden', 'Norway',
+  'Denmark', 'Finland', 'Greece', 'Croatia', 'Malta', 'Cyprus',
+  'United States', 'Canada', 'Australia', 'New Zealand',
+  'Brazil', 'Argentina', 'Mexico', 'Colombia',
+  'China', 'Japan', 'South Korea', 'India', 'Singapore',
+  'United Arab Emirates', 'Saudi Arabia', 'Qatar',
+  'South Africa', 'Morocco', 'Egypt',
+  'Russia', 'Turkey', 'Israel',
+  'Other',
+]
 
 export default function CheckoutDrawer({
   open, onClose,
@@ -29,6 +41,7 @@ export default function CheckoutDrawer({
   clientName,
   boatName = '',
   departureDate = '',
+  previousOrders = [],
 }) {
   const pc = primaryColor || '#0ea5e9'
 
@@ -36,12 +49,22 @@ export default function CheckoutDrawer({
   const [dir, setDir]           = useState(1)
   const [loading, setLoading]   = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [paymentDone, setPaymentDone] = useState(false)   // ← must pay before confirm
 
-  // Stripe submit function — set by StripePaymentForm via onReady
   const stripeSubmitRef = useRef(null)
 
-  const [form, setForm]     = useState({ name: clientName || '', email: '', notes: '' })
-  const [errors, setErrors] = useState({})
+  const emptyForm = {
+    name:      clientName || '',
+    address:   '',
+    zipcode:   '',
+    country:   '',
+    idNumber:  '',
+    contact:   '',           // email OR phone
+    notes:     '',
+  }
+
+  const [form, setForm]       = useState(emptyForm)
+  const [errors, setErrors]   = useState({})
   const [touched, setTouched] = useState({})
 
   // Scroll lock
@@ -59,11 +82,13 @@ export default function CheckoutDrawer({
     return () => window.removeEventListener('keydown', fn)
   }, [open, onClose])
 
-  // Reset on open
+  // Reset on open — but pre-fill name from client
   useEffect(() => {
     if (open) {
       setStep(0); setDir(1)
       setSubmitError(''); setErrors({}); setTouched({})
+      setPaymentDone(false)
+      setForm({ ...emptyForm, name: clientName || '' })
     }
   }, [open])
 
@@ -74,25 +99,32 @@ export default function CheckoutDrawer({
   const cartTotal = cartLines.reduce((s, l) => s + parseFloat(l.product.price) * l.qty, 0)
   const cartCount = cartLines.reduce((s, l) => s + l.qty, 0)
 
-  // Upsell suggestions for Step 0
   const upsellSuggestions = useUpsell(items, products, 4)
 
-  // Stripe PaymentIntent — created when we enter Step 2
   const { clientSecret, loading: stripeLoading, error: stripeInitError } = useStripePayment({
     amount: cartTotal,
-    currency: 'eur',     // change to your currency
+    currency: 'eur',
     enabled: step === 2,
   })
 
-  // ── Validation ────────────────────────────────────────────────
+  // ── Validation ──────────────────────────────────────────────
   function validateField(key, value) {
-    if (key === 'name')  return value.trim() ? '' : 'Name is required'
-    if (key === 'email') {
-      if (!value.trim()) return 'Email is required'
-      return /\S+@\S+\.\S+/.test(value) ? '' : 'Enter a valid email'
+    const v = (value || '').trim()
+    if (key === 'name')    return v ? '' : 'Full name is required'
+    if (key === 'address') return v ? '' : 'Address is required'
+    if (key === 'zipcode') return v ? '' : 'ZIP / Postal code is required'
+    if (key === 'country') return v ? '' : 'Country is required'
+    if (key === 'idNumber') return v ? '' : 'ID or Passport number is required'
+    if (key === 'contact') {
+      if (!v) return 'Email or phone number is required'
+      const isEmail = /\S+@\S+\.\S+/.test(v)
+      const isPhone = /^[+\d][\d\s\-().]{6,}$/.test(v)
+      return (isEmail || isPhone) ? '' : 'Enter a valid email or phone number'
     }
     return ''
   }
+
+  const requiredFields = ['name', 'address', 'zipcode', 'country', 'idNumber', 'contact']
 
   function handleBlur(key, value) {
     setTouched(t => ({ ...t, [key]: true }))
@@ -102,23 +134,21 @@ export default function CheckoutDrawer({
 
   function setField(key, value) {
     setForm(f => ({ ...f, [key]: value }))
-    // Clear error on change only if field was already touched
     if (touched[key]) {
-      const err = validateField(key, value)
-      setErrors(e => ({ ...e, [key]: err }))
+      setErrors(e => ({ ...e, [key]: validateField(key, value) }))
     }
   }
 
   function validateAll() {
     const newErrors = {}
     const newTouched = {}
-    ;['name', 'email'].forEach(k => {
+    requiredFields.forEach(k => {
       newTouched[k] = true
       newErrors[k] = validateField(k, form[k])
     })
     setTouched(newTouched)
     setErrors(newErrors)
-    return !newErrors.name && !newErrors.email
+    return requiredFields.every(k => !newErrors[k])
   }
 
   function goTo(next) {
@@ -127,14 +157,18 @@ export default function CheckoutDrawer({
   }
 
   async function handleSubmit() {
+    // Guard: must have paid
+    if (!paymentDone && STRIPE_PK) {
+      setSubmitError('Please complete payment before confirming your order.')
+      return
+    }
     setSubmitError('')
     setLoading(true)
     try {
-      // If Stripe is configured, use it for payment
-      if (STRIPE_PK && stripeSubmitRef.current) {
+      if (STRIPE_PK && stripeSubmitRef.current && !paymentDone) {
         await stripeSubmitRef.current(window.location.href)
+        setPaymentDone(true)
       }
-      // Always call the booking's onSubmit (records the order in your backend)
       await onSubmit({ form, cartLines, cartTotal })
       onClose()
     } catch (e) {
@@ -144,7 +178,7 @@ export default function CheckoutDrawer({
     }
   }
 
-  // ── Button components ─────────────────────────────────────────
+  // ── Buttons ─────────────────────────────────────────────────
   const PrimaryBtn = ({ onClick, disabled, children }) => (
     <motion.button
       whileTap={{ scale: .98 }}
@@ -231,7 +265,6 @@ export default function CheckoutDrawer({
                   }}>
                     Checkout
                   </h2>
-                  {/* Cart summary echo */}
                   <AnimatePresence>
                     {cartCount > 0 && (
                       <motion.p
@@ -253,8 +286,6 @@ export default function CheckoutDrawer({
                     alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer', transition: 'background 150ms, color 150ms',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-raised)'; e.currentTarget.style.color = 'var(--text-muted)' }}
                 >
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                     <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -288,6 +319,7 @@ export default function CheckoutDrawer({
                       onAdd={onAdd} onRemove={onRemove}
                       upsellSuggestions={upsellSuggestions}
                       cartItems={items}
+                      previousOrders={previousOrders}
                     />
                   )}
                   {step === 1 && (
@@ -306,6 +338,7 @@ export default function CheckoutDrawer({
                           primaryColor={pc}
                           submitError={submitError}
                           onReady={fn => { stripeSubmitRef.current = fn }}
+                          onPaymentSuccess={() => setPaymentDone(true)}
                           form={form}
                           cartLines={cartLines}
                           cartTotal={cartTotal}
@@ -318,6 +351,8 @@ export default function CheckoutDrawer({
                           form={form} cartLines={cartLines} cartTotal={cartTotal}
                           pc={pc} submitError={stripeInitError}
                           boatName={boatName} departureDate={departureDate}
+                          paymentDone={paymentDone}
+                          onPaymentDone={() => setPaymentDone(true)}
                         />
                       ) : (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--text-muted)', fontSize: 13 }}>
@@ -329,6 +364,8 @@ export default function CheckoutDrawer({
                         form={form} cartLines={cartLines} cartTotal={cartTotal}
                         pc={pc} submitError={submitError}
                         boatName={boatName} departureDate={departureDate}
+                        paymentDone={paymentDone}
+                        onPaymentDone={() => setPaymentDone(true)}
                       />
                     )
                   )}
@@ -342,31 +379,72 @@ export default function CheckoutDrawer({
               borderTop: '1px solid var(--border-subtle)',
               display: 'flex', gap: 10, flexShrink: 0,
               background: 'var(--bg-surface)',
+              flexDirection: 'column',
             }}>
-              {step === 0 && (
-                <>
-                  <GhostBtn onClick={onClose}>Cancel</GhostBtn>
-                  <PrimaryBtn onClick={() => goTo(1)} disabled={cartCount === 0}>
-                    Continue →
-                  </PrimaryBtn>
-                </>
+              {/* Payment required warning */}
+              {step === 2 && !paymentDone && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '9px 12px',
+                    background: 'rgba(245,158,11,0.08)',
+                    border: '1px solid rgba(245,158,11,0.25)',
+                    borderRadius: 'var(--r-md)',
+                    fontSize: 12, color: '#f59e0b',
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  Complete payment above to confirm your order
+                </motion.div>
               )}
-              {step === 1 && (
-                <>
-                  <GhostBtn onClick={() => goTo(0)}>← Back</GhostBtn>
-                  <PrimaryBtn onClick={() => { if (validateAll()) goTo(2) }}>
-                    Continue →
-                  </PrimaryBtn>
-                </>
+              {step === 2 && paymentDone && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '9px 12px',
+                    background: 'rgba(16,185,129,0.08)',
+                    border: '1px solid rgba(16,185,129,0.25)',
+                    borderRadius: 'var(--r-md)',
+                    fontSize: 12, color: '#10b981',
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                  Payment confirmed — tap below to finalise your order
+                </motion.div>
               )}
-              {step === 2 && (
-                <>
-                  <GhostBtn onClick={() => goTo(1)}>← Back</GhostBtn>
-                  <PrimaryBtn onClick={handleSubmit} disabled={loading}>
-                    {loading ? 'Sending selection…' : 'Confirm My Selection'}
-                  </PrimaryBtn>
-                </>
-              )}
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                {step === 0 && (
+                  <>
+                    <GhostBtn onClick={onClose}>Cancel</GhostBtn>
+                    <PrimaryBtn onClick={() => goTo(1)} disabled={cartCount === 0}>
+                      Continue →
+                    </PrimaryBtn>
+                  </>
+                )}
+                {step === 1 && (
+                  <>
+                    <GhostBtn onClick={() => goTo(0)}>← Back</GhostBtn>
+                    <PrimaryBtn onClick={() => { if (validateAll()) goTo(2) }}>
+                      Continue →
+                    </PrimaryBtn>
+                  </>
+                )}
+                {step === 2 && (
+                  <>
+                    <GhostBtn onClick={() => goTo(1)}>← Back</GhostBtn>
+                    <PrimaryBtn onClick={handleSubmit} disabled={!paymentDone && !!STRIPE_PK}>
+                      {loading ? 'Confirming…' : 'Confirm My Order'}
+                    </PrimaryBtn>
+                  </>
+                )}
+              </div>
             </div>
           </motion.div>
         </>
@@ -376,9 +454,9 @@ export default function CheckoutDrawer({
 }
 
 /* ─────────────────────────────────────────
-   Step 0 — Review
+   Step 0 — Review cart
 ───────────────────────────────────────── */
-function StepReview({ cartLines, cartTotal, pc, onAdd, onRemove, upsellSuggestions, cartItems }) {
+function StepReview({ cartLines, cartTotal, pc, onAdd, onRemove, upsellSuggestions, cartItems, previousOrders }) {
   if (cartLines.length === 0) {
     return (
       <div style={{
@@ -396,6 +474,27 @@ function StepReview({ cartLines, cartTotal, pc, onAdd, onRemove, upsellSuggestio
 
   return (
     <>
+      {/* Previous order badge */}
+      {previousOrders.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+          style={{
+            padding: '9px 14px',
+            background: `${pc}0d`,
+            border: `1px solid ${pc}20`,
+            borderRadius: 'var(--r-md)',
+            fontSize: 12.5, color: 'var(--text-soft)',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}
+        >
+          <span>🔁</span>
+          <span>
+            You've placed {previousOrders.length} order{previousOrders.length > 1 ? 's' : ''} before —
+            {' '}<strong style={{ color: 'var(--text-primary)' }}>this will create a new separate order.</strong>
+          </span>
+        </motion.div>
+      )}
+
       <p style={{
         fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em',
         textTransform: 'uppercase', color: 'var(--text-muted)',
@@ -404,7 +503,6 @@ function StepReview({ cartLines, cartTotal, pc, onAdd, onRemove, upsellSuggestio
         {cartLines.reduce((s, l) => s + l.qty, 0)} items selected
       </p>
 
-      {/* Line items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {cartLines.map(({ product: p, qty }) => (
           <div key={p.id} style={{
@@ -445,7 +543,6 @@ function StepReview({ cartLines, cartTotal, pc, onAdd, onRemove, upsellSuggestio
         ))}
       </div>
 
-      {/* Total */}
       <div style={{
         background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)',
         borderRadius: 'var(--r-lg)', padding: '13px 17px',
@@ -460,7 +557,6 @@ function StepReview({ cartLines, cartTotal, pc, onAdd, onRemove, upsellSuggestio
         </span>
       </div>
 
-      {/* ── Upsell row ── */}
       {upsellSuggestions.length > 0 && (
         <>
           <div style={{ height: 1, background: 'var(--border-subtle)' }} />
@@ -479,12 +575,9 @@ function StepReview({ cartLines, cartTotal, pc, onAdd, onRemove, upsellSuggestio
 }
 
 /* ─────────────────────────────────────────
-   Step 1 — Confirm details
+   Step 1 — Shipping / identity details
 ───────────────────────────────────────── */
 function StepConfirm({ form, setField, errors, touched, handleBlur, pc }) {
-  const emailValid = touched.email && !errors.email && form.email.trim()
-  const nameValid  = touched.name  && !errors.name  && form.name.trim()
-
   return (
     <>
       <div>
@@ -495,11 +588,13 @@ function StepConfirm({ form, setField, errors, touched, handleBlur, pc }) {
           Your details
         </h3>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-          So your team can prepare everything perfectly for your charter.
+          Required for customs clearance and delivery to your vessel.
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Full name */}
         <FieldGroup label="Full name" error={errors.name} required>
           <Input
             value={form.name}
@@ -507,22 +602,86 @@ function StepConfirm({ form, setField, errors, touched, handleBlur, pc }) {
             onBlur={v => handleBlur('name', v)}
             placeholder="e.g. James Harrington"
             hasError={!!errors.name}
-            isValid={!!nameValid}
+            isValid={!!(touched.name && !errors.name && form.name.trim())}
           />
         </FieldGroup>
 
-        <FieldGroup label="Email" error={errors.email} required>
+        {/* Address */}
+        <FieldGroup label="Address" error={errors.address} required>
           <Input
-            value={form.email}
-            onChange={v => setField('email', v)}
-            onBlur={v => handleBlur('email', v)}
-            placeholder="you@example.com"
-            type="email"
-            hasError={!!errors.email}
-            isValid={!!emailValid}
+            value={form.address}
+            onChange={v => setField('address', v)}
+            onBlur={v => handleBlur('address', v)}
+            placeholder="Street address, apartment, suite…"
+            hasError={!!errors.address}
+            isValid={!!(touched.address && !errors.address && form.address.trim())}
           />
         </FieldGroup>
 
+        {/* ZIP + Country row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 12 }}>
+          <FieldGroup label="ZIP / Postal code" error={errors.zipcode} required>
+            <Input
+              value={form.zipcode}
+              onChange={v => setField('zipcode', v)}
+              onBlur={v => handleBlur('zipcode', v)}
+              placeholder="e.g. 07001"
+              hasError={!!errors.zipcode}
+              isValid={!!(touched.zipcode && !errors.zipcode && form.zipcode.trim())}
+            />
+          </FieldGroup>
+
+          <FieldGroup label="Country" error={errors.country} required>
+            <CountrySelect
+              value={form.country}
+              onChange={v => { setField('country', v); handleBlur('country', v) }}
+              hasError={!!errors.country}
+              isValid={!!(touched.country && !errors.country && form.country.trim())}
+              pc={pc}
+            />
+          </FieldGroup>
+        </div>
+
+        {/* Divider */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0',
+        }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+          <span style={{
+            fontSize: 9.5, fontWeight: 700, letterSpacing: '.1em',
+            textTransform: 'uppercase', color: 'var(--text-muted)',
+            fontFamily: 'var(--font-display)', whiteSpace: 'nowrap',
+          }}>
+            Identity & Contact
+          </span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+        </div>
+
+        {/* ID / Passport */}
+        <FieldGroup label="ID / Passport number" error={errors.idNumber} required>
+          <Input
+            value={form.idNumber}
+            onChange={v => setField('idNumber', v)}
+            onBlur={v => handleBlur('idNumber', v)}
+            placeholder="e.g. AB1234567"
+            hasError={!!errors.idNumber}
+            isValid={!!(touched.idNumber && !errors.idNumber && form.idNumber.trim())}
+          />
+        </FieldGroup>
+
+        {/* Email or Phone */}
+        <FieldGroup label="Email or phone number" error={errors.contact} required>
+          <Input
+            value={form.contact}
+            onChange={v => setField('contact', v)}
+            onBlur={v => handleBlur('contact', v)}
+            placeholder="you@example.com  or  +34 600 000 000"
+            hasError={!!errors.contact}
+            isValid={!!(touched.contact && !errors.contact && form.contact.trim())}
+          />
+        </FieldGroup>
+
+        {/* Notes optional */}
         <FieldGroup label="Special requests (optional)">
           <Textarea
             value={form.notes}
@@ -539,10 +698,9 @@ function StepConfirm({ form, setField, errors, touched, handleBlur, pc }) {
 /* ─────────────────────────────────────────
    Step 2 — Payment
 ───────────────────────────────────────── */
-function StepPayment({ form, cartLines, cartTotal, pc, submitError, boatName, departureDate }) {
+function StepPayment({ form, cartLines, cartTotal, pc, submitError, boatName, departureDate, paymentDone, onPaymentDone }) {
   return (
     <>
-      {/* Vessel echo — personalisation anchor */}
       {(boatName || departureDate) && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
@@ -604,45 +762,98 @@ function StepPayment({ form, cartLines, cartTotal, pc, submitError, boatName, de
         }}>
           Payment details
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <CardFieldMock placeholder="Card number" icon="💳" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <CardFieldMock placeholder="MM / YY" />
-            <CardFieldMock placeholder="CVC" />
-          </div>
-          <CardFieldMock placeholder="Cardholder name" />
-        </div>
 
-        {/* Trust signals */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
-          marginTop: 14, padding: '10px 12px',
-          background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--r-md)',
-        }}>
-          {[
-            { icon: '🔒', text: 'SSL encrypted' },
-            { icon: '💳', text: 'Powered by Stripe' },
-            { icon: '🚫', text: 'Never stored' },
-          ].map(({ icon, text }) => (
-            <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ fontSize: 11 }}>{icon}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>{text}</span>
+        {paymentDone ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            style={{
+              padding: '20px',
+              background: 'rgba(16,185,129,0.08)',
+              border: '1px solid rgba(16,185,129,0.3)',
+              borderRadius: 'var(--r-lg)',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}
+          >
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'rgba(16,185,129,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
             </div>
-          ))}
-        </div>
+            <div>
+              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: '#10b981', marginBottom: 2 }}>
+                Payment received
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Now confirm your order below to complete
+              </p>
+            </div>
+          </motion.div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <CardFieldMock placeholder="Card number" icon="💳" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <CardFieldMock placeholder="MM / YY" />
+                <CardFieldMock placeholder="CVC" />
+              </div>
+              <CardFieldMock placeholder="Cardholder name" />
+            </div>
+
+            {/* Mock pay button for demo (Stripe would replace this) */}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={onPaymentDone}
+              style={{
+                width: '100%', height: 46, marginTop: 12,
+                background: `linear-gradient(135deg, ${pc}, ${pc}cc)`,
+                border: 'none', borderRadius: 'var(--r-lg)',
+                color: '#fff', fontFamily: 'var(--font-display)',
+                fontWeight: 700, fontSize: 14,
+                cursor: 'pointer',
+                boxShadow: `0 4px 16px ${pc}30`,
+              }}
+            >
+              Pay {formatPrice(cartTotal)}
+            </motion.button>
+
+            {/* Trust signals */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+              marginTop: 12, padding: '10px 12px',
+              background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--r-md)',
+            }}>
+              {[
+                { icon: '🔒', text: 'SSL encrypted' },
+                { icon: '💳', text: 'Powered by Stripe' },
+                { icon: '🚫', text: 'Never stored' },
+              ].map(({ icon, text }) => (
+                <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ fontSize: 11 }}>{icon}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>{text}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Confirmation email echo */}
-      <div style={{
-        padding: '11px 14px',
-        background: pc + '0d', border: `1px solid ${pc}20`,
-        borderRadius: 'var(--r-md)',
-        fontSize: 12.5, color: 'var(--text-soft)', lineHeight: 1.6,
-      }}>
-        Confirmation sent to{' '}
-        <strong style={{ color: 'var(--text-primary)' }}>{form.email || '—'}</strong>
-      </div>
+      {/* Contact echo */}
+      {form.contact && (
+        <div style={{
+          padding: '11px 14px',
+          background: pc + '0d', border: `1px solid ${pc}20`,
+          borderRadius: 'var(--r-md)',
+          fontSize: 12.5, color: 'var(--text-soft)', lineHeight: 1.6,
+        }}>
+          Confirmation sent to{' '}
+          <strong style={{ color: 'var(--text-primary)' }}>{form.contact}</strong>
+        </div>
+      )}
 
       {/* Submit error */}
       <AnimatePresence>
@@ -668,3 +879,59 @@ function StepPayment({ form, cartLines, cartTotal, pc, submitError, boatName, de
     </>
   )
 }
+
+/* ─────────────────────────────────────────
+   Country Select
+───────────────────────────────────────── */
+function CountrySelect({ value, onChange, hasError, isValid, pc }) {
+  const [focused, setFocused] = useState(false)
+  const borderColor = hasError
+    ? 'rgba(248,113,113,.6)'
+    : isValid
+      ? 'rgba(16,185,129,.5)'
+      : focused
+        ? 'var(--border-hover)'
+        : 'var(--border-soft)'
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          width: '100%', height: 44,
+          background: 'var(--bg-raised)',
+          border: `1px solid ${borderColor}`,
+          borderRadius: 'var(--r-md)',
+          padding: '0 32px 0 14px',
+          fontSize: 14, color: value ? 'var(--text-primary)' : 'var(--text-muted)',
+          fontFamily: 'var(--font-body)',
+          outline: 'none',
+          appearance: 'none',
+          WebkitAppearance: 'none',
+          cursor: 'pointer',
+          transition: 'border-color 180ms ease',
+        }}
+      >
+        <option value="">Select…</option>
+        {COUNTRIES.map(c => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
+      <svg
+        width="10" height="10" viewBox="0 0 10 6" fill="none"
+        style={{
+          position: 'absolute', right: 12, top: '50%',
+          transform: 'translateY(-50%)', pointerEvents: 'none',
+          opacity: 0.5,
+        }}
+      >
+        <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    </div>
+  )
+}
+
+
