@@ -178,45 +178,49 @@ export default function CheckoutDrawer({
     }
   }
 
-  // ── Buttons ─────────────────────────────────────────────────
-  const PrimaryBtn = ({ onClick, disabled, children }) => (
-    <motion.button
-      whileTap={{ scale: .98 }}
-      onClick={onClick}
-      disabled={disabled || loading}
-      style={{
-        flex: 1, height: 50, border: 'none',
-        borderRadius: 'var(--r-xl)',
-        background: disabled || loading ? 'var(--bg-raised)' : `linear-gradient(135deg, ${pc}, ${pc}cc)`,
-        color: disabled || loading ? 'var(--text-muted)' : '#fff',
-        fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15,
-        letterSpacing: '.01em',
-        cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        boxShadow: disabled || loading ? 'none' : `0 4px 20px ${pc}35`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        transition: 'background 200ms, box-shadow 200ms, color 200ms',
-      }}
-    >
-      {loading ? <Spinner size={18} color="rgba(255,255,255,.7)" /> : children}
-    </motion.button>
-  )
+  // ── Buttons — rendered as elements, not nested components ──
+  function renderPrimaryBtn(onClick, disabled, children) {
+    return (
+      <motion.button
+        whileTap={{ scale: .98 }}
+        onClick={onClick}
+        disabled={disabled || loading}
+        style={{
+          flex: 1, height: 50, border: 'none',
+          borderRadius: 'var(--r-xl)',
+          background: disabled || loading ? 'var(--bg-raised)' : `linear-gradient(135deg, ${pc}, ${pc}cc)`,
+          color: disabled || loading ? 'var(--text-muted)' : '#fff',
+          fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15,
+          letterSpacing: '.01em',
+          cursor: disabled || loading ? 'not-allowed' : 'pointer',
+          boxShadow: disabled || loading ? 'none' : `0 4px 20px ${pc}35`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          transition: 'background 200ms, box-shadow 200ms, color 200ms',
+        }}
+      >
+        {loading ? <Spinner size={18} color="rgba(255,255,255,.7)" /> : children}
+      </motion.button>
+    )
+  }
 
-  const GhostBtn = ({ onClick, children }) => (
-    <button
-      onClick={onClick}
-      style={{
-        height: 50, paddingLeft: 20, paddingRight: 20,
-        border: '1px solid var(--border-soft)', borderRadius: 'var(--r-xl)',
-        background: 'transparent', color: 'var(--text-soft)',
-        fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14,
-        cursor: 'pointer', transition: 'border-color 150ms, color 150ms', flexShrink: 0,
-      }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-soft)'; e.currentTarget.style.color = 'var(--text-soft)' }}
-    >
-      {children}
-    </button>
-  )
+  function renderGhostBtn(onClick, children) {
+    return (
+      <button
+        onClick={onClick}
+        style={{
+          height: 50, paddingLeft: 20, paddingRight: 20,
+          border: '1px solid var(--border-soft)', borderRadius: 'var(--r-xl)',
+          background: 'transparent', color: 'var(--text-soft)',
+          fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14,
+          cursor: 'pointer', transition: 'border-color 150ms, color 150ms', flexShrink: 0,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-soft)'; e.currentTarget.style.color = 'var(--text-soft)' }}
+      >
+        {children}
+      </button>
+    )
+  }
 
   return (
     <AnimatePresence>
@@ -422,26 +426,20 @@ export default function CheckoutDrawer({
               <div style={{ display: 'flex', gap: 10 }}>
                 {step === 0 && (
                   <>
-                    <GhostBtn onClick={onClose}>Cancel</GhostBtn>
-                    <PrimaryBtn onClick={() => goTo(1)} disabled={cartCount === 0}>
-                      Continue →
-                    </PrimaryBtn>
+                    {renderGhostBtn(onClose, 'Cancel')}
+                    {renderPrimaryBtn(() => goTo(1), cartCount === 0, 'Continue →')}
                   </>
                 )}
                 {step === 1 && (
                   <>
-                    <GhostBtn onClick={() => goTo(0)}>← Back</GhostBtn>
-                    <PrimaryBtn onClick={() => { if (validateAll()) goTo(2) }}>
-                      Continue →
-                    </PrimaryBtn>
+                    {renderGhostBtn(() => goTo(0), '← Back')}
+                    {renderPrimaryBtn(() => { if (validateAll()) goTo(2) }, false, 'Continue →')}
                   </>
                 )}
                 {step === 2 && (
                   <>
-                    <GhostBtn onClick={() => goTo(1)}>← Back</GhostBtn>
-                    <PrimaryBtn onClick={handleSubmit} disabled={!paymentDone && !!STRIPE_PK}>
-                      {loading ? 'Confirming…' : 'Confirm My Order'}
-                    </PrimaryBtn>
+                    {renderGhostBtn(() => goTo(1), '← Back')}
+                    {renderPrimaryBtn(handleSubmit, !paymentDone && !!STRIPE_PK, loading ? 'Confirming…' : 'Confirm My Order')}
                   </>
                 )}
               </div>
