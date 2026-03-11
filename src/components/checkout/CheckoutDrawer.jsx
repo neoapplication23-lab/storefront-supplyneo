@@ -116,37 +116,40 @@ export default function CheckoutDrawer({
     if (key === 'name') {
       if (!v) return 'Full name is required'
       if (v.length < 2) return 'Name is too short'
-      if (!/^[a-zA-ZÀ-ÿ\s'\-]+$/.test(v)) return 'Name can only contain letters'
+      // Allow any unicode letter, space, apostrophe, hyphen, dot
+      if (!/^[\p{L}\s'.\-]+$/u.test(v)) return 'Name can only contain letters'
       return ''
     }
     if (key === 'address') {
       if (!v) return 'Address is required'
-      if (v.length < 5) return 'Please enter a complete address'
+      if (v.length < 3) return 'Please enter a complete address'
       return ''
     }
     if (key === 'city') {
       if (!v) return 'City is required'
-      if (!/^[a-zA-ZÀ-ÿ\s'\-]+$/.test(v)) return 'City name is not valid'
+      if (v.length < 2) return 'City name is too short'
       return ''
     }
     if (key === 'province') return ''
     if (key === 'zipcode') {
       if (!v) return 'ZIP / Postal code is required'
-      // Allow letters, numbers, spaces and hyphens only — no random chars
-      if (!/^[A-Z0-9][A-Z0-9\s\-]{1,9}$/i.test(v)) return 'Enter a valid postal code (e.g. 07001 or SW1A 1AA)'
+      // Must be 3-10 chars, only alphanumeric, spaces, hyphens
+      if (!/^[A-Z0-9][A-Z0-9\s\-]{1,9}$/i.test(v.replace(/\s+/g,' ').trim()))
+        return 'Enter a valid postal code (e.g. 07001 or SW1A 1AA)'
       return ''
     }
     if (key === 'country') return v ? '' : 'Country is required'
     if (key === 'idNumber') {
       if (!v) return 'ID or Passport number is required'
-      if (v.length < 5) return 'ID number seems too short'
-      if (!/^[A-Z0-9\-]+$/i.test(v)) return 'ID number can only contain letters, numbers and hyphens'
+      if (v.length < 4) return 'ID number seems too short'
+      // Allow letters, numbers, hyphens and spaces
+      if (!/^[A-Z0-9][A-Z0-9\s\-]*$/i.test(v)) return 'ID number can only contain letters, numbers and hyphens'
       return ''
     }
     if (key === 'contact') {
       if (!v) return 'Email or phone number is required'
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
-      const isPhone = /^[+\d][\d\s\-().]{6,}$/.test(v)
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
+      const isPhone = /^[+\d][\d\s\-().]{5,}$/.test(v)
       return (isEmail || isPhone) ? '' : 'Enter a valid email or phone number'
     }
     return ''
@@ -461,13 +464,13 @@ export default function CheckoutDrawer({
                 {step === 1 && (
                   <>
                     {renderGhostBtn(() => goTo(0), '← Back')}
-                    {renderPrimaryBtn(() => { if (validateAll()) goTo(2) }, false, 'Continue →')}
+                    {renderPrimaryBtn(() => { if (validateAll()) goTo(2) }, false, 'Review Order →')}
                   </>
                 )}
                 {step === 2 && (
                   <>
                     {renderGhostBtn(() => goTo(1), '← Back')}
-                    {renderPrimaryBtn(handleSubmit, !paymentDone && !!STRIPE_PK, loading ? 'Confirming…' : 'Confirm My Order')}
+                    {renderPrimaryBtn(handleSubmit, !paymentDone && !!STRIPE_PK, loading ? 'Processing…' : 'Place Order')}
                   </>
                 )}
               </div>
