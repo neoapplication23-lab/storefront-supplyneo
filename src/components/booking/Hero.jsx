@@ -30,7 +30,7 @@ export default function Hero({ data, departureTime }) {
     <section style={{
       position: 'relative',
       overflow: 'hidden',
-      minHeight: '62vh',
+      minHeight: 'clamp(340px, 52vh, 600px)',
       display: 'flex',
       alignItems: 'flex-end',
       padding: 'clamp(56px,9vw,104px) clamp(20px,5vw,80px) clamp(52px,6vw,76px)',
