@@ -97,18 +97,19 @@ export default function StripePaymentForm({
         paymentElement.on('ready', () => {
           if (!destroyed) {
             setReady(true)
-            // Expose the submit function to the parent
             if (onReady) {
               onReady(async (returnUrl) => {
-                const { error } = await stripe.confirmPayment({
+                const { error, paymentIntent } = await stripe.confirmPayment({
                   elements,
                   confirmParams: {
                     return_url: returnUrl || window.location.href,
-                    receipt_email: form?.email,
+                    receipt_email: form?.contact || form?.email,
                   },
                   redirect: 'if_required',
                 })
                 if (error) throw new Error(error.message)
+                // Payment confirmed without redirect (e.g. card) — signal success
+                if (paymentIntent && onPaymentSuccess) onPaymentSuccess()
               })
             }
           }
