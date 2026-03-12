@@ -43,6 +43,7 @@ export default function CheckoutDrawer({
   boatName = '',
   departureDate = '',
   previousOrders = [],
+  isApa = false,
 }) {
   const pc = primaryColor || '#0ea5e9'
 
@@ -109,7 +110,7 @@ export default function CheckoutDrawer({
   const { clientSecret, loading: stripeLoading, error: stripeInitError } = useStripePayment({
     amount: cartTotal,
     currency: 'eur',
-    enabled: step === 2,
+    enabled: !isApa && step === 2,
   })
 
   // ── Validation ──────────────────────────────────────────────
@@ -198,12 +199,13 @@ export default function CheckoutDrawer({
     setSubmitError('')
     setLoading(true)
     try {
-      // Step 1: Confirm payment with Stripe (throws on failure)
-      if (STRIPE_PK && stripeSubmitRef.current) {
+      // APA orders: no payment required — submit directly
+      if (!isApa && STRIPE_PK && stripeSubmitRef.current) {
+        // Step 1: Confirm payment with Stripe (throws on failure)
         await stripeSubmitRef.current(window.location.href)
         // If we reach here, payment was confirmed successfully
       }
-      // Step 2: Only create the order after payment succeeds
+      // Create the order
       await onSubmit({ form, cartLines, cartTotal })
       onClose()
     } catch (e) {
@@ -331,7 +333,7 @@ export default function CheckoutDrawer({
                   </svg>
                 </button>
               </div>
-              <StepIndicator current={step} primaryColor={pc} />
+              <StepIndicator current={step} primaryColor={pc} isApa={isApa} />
             </div>
 
             {/* ── Step content ── */}
@@ -369,7 +371,13 @@ export default function CheckoutDrawer({
                     />
                   )}
                   {step === 2 && (
-                    STRIPE_PK ? (
+                    isApa ? (
+                      <StepApaConfirm
+                        form={form} cartLines={cartLines} cartTotal={cartTotal}
+                        pc={pc} submitError={submitError}
+                        boatName={boatName} departureDate={departureDate}
+                      />
+                    ) : STRIPE_PK ? (
                       clientSecret ? (
                         <StripePaymentForm
                           clientSecret={clientSecret}
@@ -440,8 +448,8 @@ export default function CheckoutDrawer({
                     {renderGhostBtn(() => goTo(1), '← Back')}
                     {renderPrimaryBtn(
                       handleSubmit,
-                      loading || (STRIPE_PK ? (stripeLoading || (!clientSecret && !stripeInitError) || !stripeReady) : false),
-                      loading ? 'Processing…' : 'Confirm My Order 🔒'
+                      loading || (!isApa && STRIPE_PK ? (stripeLoading || (!clientSecret && !stripeInitError) || !stripeReady) : false),
+                      loading ? 'Processing…' : isApa ? 'Confirm Order ✓' : 'Confirm My Order 🔒'
                     )}
                   </>
                 )}
@@ -905,6 +913,124 @@ function StepPayment({ form, cartLines, cartTotal, pc, submitError, boatName, de
     </>
   )
 }
+
+/* ─────────────────────────────────────────
+   Step 2 (APA) — Order summary, no payment
+───────────────────────────────────────── */
+function StepApaConfirm({ form, cartLines, cartTotal, pc, submitError, boatName, departureDate }) {
+  return (
+    <>
+      {/* APA notice */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12,
+        padding: '14px 16px',
+        background: `${pc}12`,
+        border: `1px solid ${pc}30`,
+        borderRadius: 'var(--r-lg)',
+      }}>
+        <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>⚡</span>
+        <div>
+          <p style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14,
+            color: 'var(--text-primary)', marginBottom: 4,
+          }}>
+            APA — No payment required
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', lineHeight: 1.6 }}>
+            This order will be charged to your APA account. Confirm below to place your order.
+          </p>
+        </div>
+      </div>
+
+      {/* Vessel info */}
+      {(boatName || departureDate) && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px',
+          background: pc + '0a', border: `1px solid ${pc}20`,
+          borderRadius: 'var(--r-md)',
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke={pc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 17l1.5-9h15L21 17"/>
+            <path d="M3 17c0 2.2 1.8 4 4 4h10c2.2 0 4-1.8 4-4"/>
+            <path d="M12 3v5"/><path d="M8 8h8"/>
+          </svg>
+          <span style={{ fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.4 }}>
+            {boatName && <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{boatName}</strong>}
+            {boatName && departureDate && ' · '}
+            {departureDate && <span>{departureDate}</span>}
+          </span>
+        </div>
+      )}
+
+      {/* Order summary */}
+      <div style={{
+        background: 'var(--bg-raised)', border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--r-lg)', padding: '14px 18px',
+        display: 'flex', flexDirection: 'column', gap: 7,
+      }}>
+        <p style={{
+          fontSize: 9.5, fontWeight: 700, letterSpacing: '.1em',
+          textTransform: 'uppercase', color: 'var(--text-muted)',
+          fontFamily: 'var(--font-display)',
+        }}>
+          Order summary
+        </p>
+        {cartLines.map(({ product: p, qty }) => (
+          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-soft)' }}>{p.name} × {qty}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+              {formatPrice(parseFloat(p.price) * qty)}
+            </span>
+          </div>
+        ))}
+        <div style={{ height: 1, background: 'var(--border-subtle)', margin: '3px 0' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Total</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: pc, fontFamily: 'var(--font-display)', letterSpacing: '-.02em' }}>
+            {formatPrice(cartTotal)}
+          </span>
+        </div>
+      </div>
+
+      {/* Contact echo */}
+      {form.contact && (
+        <div style={{
+          padding: '11px 14px',
+          background: pc + '0d', border: `1px solid ${pc}20`,
+          borderRadius: 'var(--r-md)',
+          fontSize: 12.5, color: 'var(--text-soft)', lineHeight: 1.6,
+        }}>
+          Confirmation sent to{' '}
+          <strong style={{ color: 'var(--text-primary)' }}>{form.contact}</strong>
+        </div>
+      )}
+
+      {/* Submit error */}
+      <AnimatePresence>
+        {submitError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 14px',
+              background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)',
+              borderRadius: 'var(--r-md)', color: '#f87171', fontSize: 13, fontWeight: 500,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {submitError}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
 
 /* ─────────────────────────────────────────
    Country Select
