@@ -271,6 +271,7 @@ export default function BookingPage({ code }) {
         boatName={data.boat?.boat_name || ''}
         departureDate={data.date || ''}
         previousOrders={orders}
+        isApa={!!(data.apaActive)}
       />
 
       <ShipAnimation
