@@ -50,7 +50,8 @@ export default function CheckoutDrawer({
   const [dir, setDir]           = useState(1)
   const [loading, setLoading]   = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [paymentDone, setPaymentDone] = useState(false)   // ← must pay before confirm
+  const [paymentDone, setPaymentDone] = useState(false)
+  const [stripeReady, setStripeReady] = useState(false)
 
   const stripeSubmitRef = useRef(null)
 
@@ -91,6 +92,7 @@ export default function CheckoutDrawer({
       setStep(0); setDir(1)
       setSubmitError(''); setErrors({}); setTouched({})
       setPaymentDone(false)
+      setStripeReady(false)
       setForm({ ...emptyForm, name: clientName || '' })
     }
   }, [open])
@@ -191,10 +193,10 @@ export default function CheckoutDrawer({
     setSubmitError('')
     setLoading(true)
     try {
-      // If Stripe is configured and payment not yet done, process it now
-      if (STRIPE_PK && stripeSubmitRef.current && !paymentDone) {
+      // With Stripe: confirmPayment handles the charge inline (redirect: 'if_required')
+      // stripeSubmitRef is set by StripePaymentForm once the element is ready
+      if (STRIPE_PK && stripeSubmitRef.current) {
         await stripeSubmitRef.current(window.location.href)
-        setPaymentDone(true)
       }
       await onSubmit({ form, cartLines, cartTotal })
       onClose()
@@ -430,7 +432,11 @@ export default function CheckoutDrawer({
                 {step === 2 && (
                   <>
                     {renderGhostBtn(() => goTo(1), '← Back')}
-                    {renderPrimaryBtn(handleSubmit, loading, loading ? 'Processing…' : 'Place Order 🔒')}
+                    {renderPrimaryBtn(
+                      handleSubmit,
+                      loading || (STRIPE_PK ? (stripeLoading || (!clientSecret && !stripeInitError)) : false),
+                      loading ? 'Processing…' : 'Confirm My Order 🔒'
+                    )}
                   </>
                 )}
               </div>
