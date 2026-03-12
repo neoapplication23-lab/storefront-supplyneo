@@ -1,10 +1,12 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 
-const STEPS = ['Review', 'Confirm', 'Payment']
+const STEPS_NORMAL = ['Review', 'Confirm', 'Payment']
+const STEPS_APA    = ['Review', 'Confirm', 'Order']
 
-export default function StepIndicator({ current, primaryColor }) {
-  const pc = primaryColor || '#0ea5e9'
+export default function StepIndicator({ current, primaryColor, isApa = false }) {
+  const pc    = primaryColor || '#0ea5e9'
+  const STEPS = isApa ? STEPS_APA : STEPS_NORMAL
 
   return (
     <div style={{
