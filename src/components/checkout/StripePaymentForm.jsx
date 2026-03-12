@@ -21,6 +21,7 @@ export default function StripePaymentForm({
   primaryColor,
   submitError,
   onReady,
+  onPaymentSuccess,
   form,
   cartLines,
   cartTotal,
