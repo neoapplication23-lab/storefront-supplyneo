@@ -186,6 +186,11 @@ export default function CheckoutDrawer({
 
   function goTo(next) {
     setDir(next > step ? 1 : -1)
+    // Reset stripe ready state when leaving payment step
+    if (step === 2 && next < 2) {
+      setStripeReady(false)
+      stripeSubmitRef.current = null
+    }
     setStep(next)
   }
 
@@ -193,11 +198,12 @@ export default function CheckoutDrawer({
     setSubmitError('')
     setLoading(true)
     try {
-      // With Stripe: confirmPayment handles the charge inline (redirect: 'if_required')
-      // stripeSubmitRef is set by StripePaymentForm once the element is ready
+      // Step 1: Confirm payment with Stripe (throws on failure)
       if (STRIPE_PK && stripeSubmitRef.current) {
         await stripeSubmitRef.current(window.location.href)
+        // If we reach here, payment was confirmed successfully
       }
+      // Step 2: Only create the order after payment succeeds
       await onSubmit({ form, cartLines, cartTotal })
       onClose()
     } catch (e) {
@@ -370,7 +376,7 @@ export default function CheckoutDrawer({
                           publishableKey={STRIPE_PK}
                           primaryColor={pc}
                           submitError={submitError}
-                          onReady={fn => { stripeSubmitRef.current = fn }}
+                          onReady={fn => { stripeSubmitRef.current = fn; setStripeReady(true) }}
                           onPaymentSuccess={() => setPaymentDone(true)}
                           form={form}
                           cartLines={cartLines}
@@ -434,7 +440,7 @@ export default function CheckoutDrawer({
                     {renderGhostBtn(() => goTo(1), '← Back')}
                     {renderPrimaryBtn(
                       handleSubmit,
-                      loading || (STRIPE_PK ? (stripeLoading || (!clientSecret && !stripeInitError)) : false),
+                      loading || (STRIPE_PK ? (stripeLoading || (!clientSecret && !stripeInitError) || !stripeReady) : false),
                       loading ? 'Processing…' : 'Confirm My Order 🔒'
                     )}
                   </>
