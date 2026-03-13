@@ -150,7 +150,11 @@ function ModalInner({
   onAdd, onRemove, onClose, setImgError,
   upsellSuggestions, cartItems, onUpsellAdd,
 }) {
-  const hasUpsells = upsellSuggestions?.length > 0
+  const hasUpsells      = upsellSuggestions?.length > 0
+  const tracksInventory = !!(product.trackInventory || product.track_inventory)
+  const outOfStock      = tracksInventory && product.available === false
+  const availableQty    = product.availableQty ?? null
+  const atMax           = tracksInventory && availableQty !== null && qty >= availableQty
 
   return (
     <>
@@ -355,31 +359,32 @@ function ModalInner({
                 exit={{ opacity: 0, x: -8 }} transition={{ duration: .18 }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10 }}
               >
-                <Stepper qty={qty} onAdd={onAdd} onRemove={onRemove} primaryColor={pc} />
+                <Stepper qty={qty} onAdd={atMax ? undefined : onAdd} onRemove={onRemove} primaryColor={pc} maxReached={atMax} />
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>in selection</span>
               </motion.div>
             )}
           </AnimatePresence>
 
           <motion.button
-            whileTap={{ scale: .97 }}
-            onClick={inCart ? onClose : onAdd}
+            whileTap={outOfStock ? {} : { scale: .97 }}
+            onClick={outOfStock ? undefined : (inCart ? onClose : onAdd)}
             style={{
               height: 46, paddingLeft: 24, paddingRight: 24,
               borderRadius: 'var(--r-pill)',
-              border: inCart ? `1px solid ${pc}40` : 'none',
-              background: inCart ? 'transparent' : `linear-gradient(135deg, ${pc}, ${pc}cc)`,
-              color: inCart ? pc : '#fff',
+              border: outOfStock ? '1px solid rgba(239,68,68,.3)' : inCart ? `1px solid ${pc}40` : 'none',
+              background: outOfStock ? 'rgba(239,68,68,.1)' : inCart ? 'transparent' : `linear-gradient(135deg, ${pc}, ${pc}cc)`,
+              color: outOfStock ? '#ef4444' : inCart ? pc : '#fff',
               fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14,
-              letterSpacing: '.01em', cursor: 'pointer',
-              boxShadow: inCart ? 'none' : `0 4px 18px ${pc}35`,
+              letterSpacing: '.01em', cursor: outOfStock ? 'not-allowed' : 'pointer',
+              boxShadow: inCart || outOfStock ? 'none' : `0 4px 18px ${pc}35`,
               transition: 'all 200ms ease',
               whiteSpace: 'nowrap', flexShrink: 0,
+              opacity: outOfStock ? 0.7 : 1,
             }}
-            onMouseEnter={e => { if (inCart) e.currentTarget.style.background = pc + '12' }}
-            onMouseLeave={e => { if (inCart) e.currentTarget.style.background = 'transparent' }}
+            onMouseEnter={e => { if (inCart && !outOfStock) e.currentTarget.style.background = pc + '12' }}
+            onMouseLeave={e => { if (inCart && !outOfStock) e.currentTarget.style.background = 'transparent' }}
           >
-            {inCart ? 'Done ✓' : `Add — ${formatPrice(product.price)}`}
+            {outOfStock ? 'Out of stock' : inCart ? 'Done ✓' : `Add — ${formatPrice(product.price)}`}
           </motion.button>
         </div>
       </div>
