@@ -55,22 +55,26 @@ export default function StripePaymentForm({
         stripeRef.current = stripe
 
         // Appearance tweaked to match the app's dark theme
+        // Stripe only accepts real hex/rgb values — not CSS variables
         const appearance = {
           theme: 'night',
           variables: {
             colorPrimary: pc,
-            colorBackground: 'var(--bg-raised)',
-            colorText: 'var(--text-primary)',
+            colorBackground: '#0c1526',   // --bg-raised
+            colorText: '#f1f5f9',         // --text-primary
+            colorTextSecondary: '#94a3b8',
             colorDanger: '#f87171',
-            fontFamily: 'var(--font-display), system-ui, sans-serif',
+            fontFamily: 'system-ui, sans-serif',
             borderRadius: '10px',
             fontSizeBase: '14px',
+            colorIconTab: '#94a3b8',
+            colorIconTabSelected: '#f1f5f9',
           },
           rules: {
             '.Input': {
               boxShadow: 'none',
-              border: '1px solid var(--border-soft)',
-              backgroundColor: 'var(--bg-raised)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              backgroundColor: '#0c1526',
             },
             '.Input:focus': {
               border: `1px solid ${pc}`,
@@ -81,7 +85,7 @@ export default function StripePaymentForm({
               fontWeight: '700',
               letterSpacing: '0.09em',
               textTransform: 'uppercase',
-              color: 'var(--text-muted)',
+              color: '#94a3b8',
             },
           },
         }
