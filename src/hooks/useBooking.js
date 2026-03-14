@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getBooking } from '../api/booking'
 
 export default function useBooking(code) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)   // 'not_found' | 'network' | string
+  const [tick,    setTick]    = useState(0)
+
+  const refetch = useCallback(() => setTick(t => t + 1), [])
 
   useEffect(() => {
     if (!code) { setLoading(false); setError('not_found'); return }
@@ -22,7 +25,7 @@ export default function useBooking(code) {
       })
 
     return () => { cancelled = true }
-  }, [code])
+  }, [code, tick])
 
-  return { data, loading, error }
+  return { data, loading, error, refetch }
 }
