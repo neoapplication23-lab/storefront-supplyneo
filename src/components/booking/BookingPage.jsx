@@ -18,7 +18,7 @@ import ShipAnimation from './ShipAnimation'
 import { motion } from 'framer-motion'
 
 export default function BookingPage({ code }) {
-  const { data, loading, error } = useBooking(code)
+  const { data, loading, error, refetch } = useBooking(code)
   const items  = useCartStore(s => s.items)
   const add    = useCartStore(s => s.add)
   const remove = useCartStore(s => s.remove)
@@ -161,7 +161,7 @@ export default function BookingPage({ code }) {
           boatName={data.boat?.boat_name || ''}
           departureDate={data.date || ''}
           orderCount={orders.length}
-          onAddMore={bookingLocked ? undefined : () => setShowStore(true)}
+          onAddMore={bookingLocked ? undefined : () => { refetch(); setShowStore(true) }}
         />
         <ShipAnimation
           show={showShip}
