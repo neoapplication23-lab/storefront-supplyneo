@@ -5,27 +5,25 @@ export default function useBooking(code) {
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)   // 'not_found' | 'network' | string
-  const [tick,    setTick]    = useState(0)
 
-  const refetch = useCallback(() => setTick(t => t + 1), [])
-
-  useEffect(() => {
-    if (!code) { setLoading(false); setError('not_found'); return }
-
-    let cancelled = false
+  const fetchData = useCallback(() => {
+    if (!code) { setLoading(false); setError('not_found'); return Promise.resolve(null) }
     setLoading(true)
     setError(null)
-
-    getBooking(code)
-      .then(d  => { if (!cancelled) { setData(d); setLoading(false) } })
+    return getBooking(code)
+      .then(d  => { setData(d); setLoading(false); return d })
       .catch(e => {
-        if (cancelled) return
         setError(e.message?.toLowerCase().includes('not found') ? 'not_found' : 'network')
         setLoading(false)
+        return null
       })
+  }, [code])
 
-    return () => { cancelled = true }
-  }, [code, tick])
+  // Initial fetch
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // refetch returns a promise that resolves when fresh data is loaded
+  const refetch = useCallback(() => fetchData(), [fetchData])
 
   return { data, loading, error, refetch }
 }
