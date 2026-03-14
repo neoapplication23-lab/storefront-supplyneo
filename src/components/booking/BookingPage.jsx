@@ -161,7 +161,7 @@ export default function BookingPage({ code }) {
           boatName={data.boat?.boat_name || ''}
           departureDate={data.date || ''}
           orderCount={orders.length}
-          onAddMore={bookingLocked ? undefined : () => { refetch(); setShowStore(true) }}
+          onAddMore={bookingLocked ? undefined : async () => { await refetch(); setShowStore(true) }}
         />
         <ShipAnimation
           show={showShip}
